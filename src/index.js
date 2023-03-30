@@ -45,6 +45,10 @@ class Promise {
     this.resolvedCallbacks = [] // 存放成功的回调
     this.rejectedCallbacks = [] // 存放失败的回调
     const resolve = (value) => {
+      // 下面的这个规范没有要求
+      if (value instanceof Promise) {
+        return value.then(resolve, reject)
+      }
       /**
        * 1. 调用resolve方法状态会改为FULFILLED
        * 2. 由于promise状态一旦改变，以后不能更改，所以只有在PENDING状态时才能改为FULFILLED
@@ -132,6 +136,90 @@ class Promise {
       }
     })
     return promise2
+  }
+  catch(fn) {
+    return this.then(null, fn)
+  }
+  finally(fn) {
+    return this.then((value) => {
+      return Promise.resolve(fn()).then(() => value)
+    }, (err) => {
+      return Promise.resolve(fn()).then(() => { throw err })
+    })
+  }
+  static resolve(data) {
+    return new Promise((resolve) => {
+      resolve(data)
+    })
+  }
+  static reject(data) {
+    return new Promise((resolve, reject) => {
+      reject(data)
+    })
+  }
+  static all(promises) {
+    return new Promise((resolve, reject) => {
+      let result = []
+      let times = 0
+      const processSuccess = (index, value) => {
+        result[i] = value
+        if (++times === promises.length) {
+          resolve(result)
+        }
+      }
+      for (let i = 0; i < promises.length; i++) {
+        let p = promises[i]
+        // 判断p是否为promise,即判断有没有then方法
+        if (p && typeof p.then === 'function') {
+          p.then((value) => {
+            processSuccess(i, value)
+          }, reject)
+        } else {
+          processSuccess(i, p)
+        }
+      }
+    })
+  }
+  static race(promises) {
+    return new Promise((resolve, reject) => {
+      for (let i = 0; i < promises.length; i++) {
+        const p = promises[i]
+        if (p && typeof p.then === 'function') {
+          p.then(resolve, reject)
+        } else {
+          resolve(p)
+        }
+      }
+    })
+  }
+  static allSettled(promises) {
+
+    let result = []
+    let times = 0
+
+    return new Promise((resolve, reject) => {
+      const processComplete = (index, data, state) => {
+        result[index] = {
+          state,
+          ...data
+        }
+        if (++times === promises.length) {
+          resolve(result)
+        }
+      }
+      for (let i = 0; i < promises.length; i++) {
+        const p = promises[i]
+        if (p && typeof p.then === 'function') {
+          p.then((value) => {
+            processComplete(i, { value }, 'fulfilled')
+          }, (reason) => {
+            processComplete(i, { reason }, 'rejected')
+          })
+        } else {
+          processComplete(i, { value: p }, 'fulfilled')
+        }
+      }
+    })
   }
 }
 
