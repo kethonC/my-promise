@@ -221,6 +221,28 @@ class Promise {
       }
     })
   }
+  static any(promises) {
+    let result = []
+    let times = 0
+    const processFail = (index, reason) => {
+      result[index] = reason
+      if(++times === promises.length) {
+        this.reject(result)
+      }
+    }
+    return new Promise((resolve, reject) => {
+      for (let i = 0; i < promises.length; i++) {
+        let p = promises[i]
+        if (p && typeof p.then === 'function') {
+          p.then(resolve, (reason) => {
+            processFail(i, reason)
+          })
+        } else {
+          resolve(p)
+        }
+      }
+    })
+  }
 }
 
 // promises-aplus-tests
