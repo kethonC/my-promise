@@ -223,23 +223,32 @@ class Promise {
   }
   static any(promises) {
     let result = []
+    let resolveValue
+    let hasResolved = false
     let times = 0
-    const processFail = (index, reason) => {
-      result[index] = reason
-      if(++times === promises.length) {
-        this.reject(result)
-      }
-    }
     return new Promise((resolve, reject) => {
+      const processFail = (index, reason) => {
+        result[index] = reason
+        if(++times === promises.length) {
+          reject(new AggregateError(result, 'All promises were rejected'))
+        }
+      }
+      const processSuccess = (index, value) => {
+        if (!hasResolved) {
+          resolveValue = value
+          hasResolved = true
+        }
+        if(++times === promises.length) {
+          resolve(resolveValue)
+        }
+      }
       for (let i = 0; i < promises.length; i++) {
         let p = promises[i]
-        if (p && typeof p.then === 'function') {
-          p.then(resolve, (reason) => {
-            processFail(i, reason)
-          })
-        } else {
-          resolve(p)
-        }
+        p.then((value) => {
+          processSuccess(i, value)
+        }, (reason) => {
+          processFail(i, reason)
+        })
       }
     })
   }
